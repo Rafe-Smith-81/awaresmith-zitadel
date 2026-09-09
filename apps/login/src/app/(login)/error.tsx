@@ -1,8 +1,5 @@
 "use client";
 
-import { Boundary } from "@/components/boundary";
-import { Button } from "@/components/button";
-import { Translated } from "@/components/translated";
 import { useEffect } from "react";
 
 export default function Error({ error, reset }: any) {
@@ -10,18 +7,11 @@ export default function Error({ error, reset }: any) {
     console.log("logging error:", error);
   }, [error]);
 
-  return (
-    <Boundary labels={["Login Error"]} color="red">
-      <div className="space-y-4">
-        <div className="text-sm text-red-500 dark:text-red-500">
-          <strong className="font-bold">Error:</strong> {error?.message}
-        </div>
-        <div>
-          <Button data-i18n-key="error.tryagain" onClick={() => reset()}>
-            <Translated i18nKey="tryagain" namespace="error" />
-          </Button>
-        </div>
-      </div>
-    </Boundary>
-  );
+  // Aware Smith fork (2026-09-08): the route error boundary renders NOTHING.
+  // On the U2F verify step Next.js throws a transient "Error in input stream"
+  // while the browser is already navigating to the relying party; upstream's
+  // red "Login Error / Try Again" box flashed for the half second until the app
+  // painted. The failure is still logged above; a persistent error now shows as
+  // a blank page (reload recovers). Drop this file when upstream fixes the race.
+  return <div data-testid="login-error-boundary" className="min-h-screen" aria-hidden="true" />;
 }
