@@ -2,7 +2,7 @@ import { isRSCRequest, validateAuthRequest } from "@/lib/auth-utils";
 import { getAllSessions } from "@/lib/cookies";
 import { createLogger } from "@/lib/logger";
 import { FlowInitiationParams, handleOIDCFlowInitiation, handleSAMLFlowInitiation } from "@/lib/server/flow-initiation";
-import { getServiceConfig } from "@/lib/service-url";
+import { constructUrl, getServiceConfig } from "@/lib/service-url";
 import { listSessions, ServiceConfig } from "@/lib/zitadel";
 import { Session } from "@zitadel/proto/zitadel/session/v2/session_pb";
 
@@ -20,10 +20,10 @@ const logger = createLogger("login-route");
 // app, instead of answering with raw JSON ("Internal server error" is what a reloaded finished
 // login used to show).
 function staleRedirect(request: NextRequest) {
-  const url = request.nextUrl.clone();
-  url.pathname = "/stale";
-  url.search = "";
-  return NextResponse.redirect(url);
+  // constructUrl builds from the forwarded public host plus the base path, like the rest of this
+  // app. request.nextUrl would not do: behind the gateway it resolves to this container's own
+  // bind address ([::]:3000) and drops /ui/v2/login — a redirect no browser can follow.
+  return NextResponse.redirect(constructUrl(request, "/stale"));
 }
 
 async function loadSessions({ serviceConfig, ids }: { serviceConfig: ServiceConfig; ids: string[] }): Promise<Session[]> {
