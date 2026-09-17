@@ -14,6 +14,18 @@ export const fetchCache = "default-no-store";
 
 const logger = createLogger("login-route");
 
+// Aware Smith fork (2026-09-16): a login request that is missing, unknown, already finished or
+// unreadable is a STALE request — an old tab, a page reloaded after sign-in, a copied link — not a
+// server error. Send the person to the stale page, which counts down and restarts sign-in at the
+// app, instead of answering with raw JSON ("Internal server error" is what a reloaded finished
+// login used to show).
+function staleRedirect(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/stale";
+  url.search = "";
+  return NextResponse.redirect(url);
+}
+
 async function loadSessions({ serviceConfig, ids }: { serviceConfig: ServiceConfig; ids: string[] }): Promise<Session[]> {
   const response = await listSessions({ serviceConfig, ids: ids.filter((id: string | undefined) => !!id) });
 
@@ -33,7 +45,7 @@ export async function GET(request: NextRequest) {
   // Early validation: if no valid request parameters, return error immediately
   const requestId = validateAuthRequest(searchParams);
   if (!requestId) {
-    return NextResponse.json({ error: "No valid authentication request found" }, { status: 400 });
+    return staleRedirect(request);
   }
 
   const sessionCookies = await getAllSessions();
@@ -63,10 +75,10 @@ export async function GET(request: NextRequest) {
       // Device Authorization does not need to start here as it is handled on the /device endpoint
       return NextResponse.json({ error: "Device authorization should use /device endpoint" }, { status: 400 });
     } else {
-      return NextResponse.json({ error: "Invalid request ID format" }, { status: 400 });
+      return staleRedirect(request);
     }
   } catch (error: unknown) {
     logger.error("Flow initiation failed", { requestId, error });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return staleRedirect(request);
   }
 }

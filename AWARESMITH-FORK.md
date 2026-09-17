@@ -1,25 +1,32 @@
 # awaresmith-zitadel — Aware Smith fork of `zitadel/zitadel`
 
 Fleet member since 2026-09-09. Exists for ONE reason: to build our Login V2 image
-`awaresmith/zitadel-login:v4.17.3-as.N`. Everything else in this repo is untouched upstream.
+`awaresmith/zitadel-login:v4.17.3-as.N`. Everything outside `apps/login` is untouched upstream.
 
 **Branch:** `awaresmith/v4.17.3` (default) — upstream tag `v4.17.3` + the patches below.
 **Temporary by design:** drop this fork, the `ZITADEL_LOGIN_IMAGE` env and the image tag the moment
 upstream fixes the race. Rebase + rebuild on every Zitadel version bump (login UI and core are
 versioned together).
 
-## The patches (presentational only — no logic changed)
+## The patches
 
-| File | Change |
-|---|---|
-| `apps/login/src/app/(login)/error.tsx` | route error boundary renders a blank page |
-| `apps/login/src/app/global-error.tsx` | root error boundary renders a blank themed page |
+| File | Change | Since |
+|---|---|---|
+| `apps/login/src/components/awaresmith-stale.tsx` | **new** — "Your sign-in went stale", 3-second countdown, then `/account/signin` on the same origin; optional blank delay | as.3 |
+| `apps/login/src/app/(login)/error.tsx` | route error boundary: blank 1.5 s, then the stale component | as.2 → as.3 |
+| `apps/login/src/app/global-error.tsx` | root error boundary: same | as.2 → as.3 |
+| `apps/login/src/app/(login)/stale/page.tsx` | **new** — themed page that renders the stale component | as.3 |
+| `apps/login/src/app/login/route.ts` | missing / unknown / already-finished / unreadable login request → redirect to `/stale` instead of raw JSON 400/500 | as.3 |
 
-Why: on the U2F verify step Next.js throws a transient "Error in input stream" while the browser is
-already navigating to the relying party (`/signin-oidc`). Upstream's red "Login Error / Try Again" box
-painted for the half second until the app rendered. Login still succeeds. The error is still logged
-to the browser console; a persistent failure shows as a blank page and a reload recovers.
-Verified 2026-09-10 on dev by Rafe across repeated sign-in/sign-out loops.
+**as.2 (2026-09-10) was presentational only**: both boundaries rendered nothing, to hide Next.js's
+transient "Error in input stream" on the security-key step while the browser was already navigating
+to the app. That also hid REAL errors — a stale login request showed a blank page with no way out.
+
+**as.3 (2026-09-16) is not presentational only.** It changes what a failure DOES: the boundaries wait
+1.5 s (the navigation wins, so the flash still never shows), then show the stale page and restart
+sign-in at the app; `/login` redirects known-stale requests there too. The app's loop guard
+(gateway `SigninRecovery`) stops restarts after two, so an outage cannot loop.
+Plan: `awaresmith-gateway/SIGNIN-RECOVERY-PLAN.md` (K6, scenarios C1–C5).
 
 ## Build (what `apps/login/Dockerfile` does NOT do)
 
