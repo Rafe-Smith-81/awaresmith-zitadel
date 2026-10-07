@@ -27,7 +27,11 @@ const nextConfig = {
   basePath: process.env.NEXT_PUBLIC_BASE_PATH,
   output: process.env.NEXT_OUTPUT_MODE || undefined,
   reactStrictMode: true,
+  // as.4: the app never uses next/image; unoptimized makes /_next/image a 404 whatever sharp does.
+  images: { unoptimized: true },
   experimental: {
+    // as.4: keep 16.2's build type check (skips *.test.ts); 16.3's tsc-CLI default fails on upstream test files.
+    useTypeScriptCli: false,
     // Add React 19 compatibility optimizations
     optimizePackageImports: ["@radix-ui/react-tooltip", "@heroicons/react"],
     serverActions: {
